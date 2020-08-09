@@ -14,6 +14,7 @@ import javax.validation.constraints.Null;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "trade")
+@Entity
 public class TradeDto {
     @NotNull
     private int amount;

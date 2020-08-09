@@ -61,12 +61,14 @@ public class RsService {
         if (tradeDto != null && trade.getAmount() < tradeDto.getAmount()) {
             throw new RuntimeException();
         }
+        tradeRepository.deleteById(trade.getRsEventId());
+
         trade.setRsEventId(id);
         tradeDto.setAmount(trade.getAmount());
         tradeDto.setRank(trade.getRank());
-        tradeDto.setRsEventId(id);
 
+        RsEventDto rsEventDto = rsEventRepository.findById(id).get();
+        rsEventDto.setRank(trade.getRank());
         tradeRepository.save(tradeDto);
-
     }
 }
