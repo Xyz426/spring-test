@@ -1,9 +1,12 @@
 package com.thoughtworks.rslist.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.thoughtworks.rslist.domain.Trade;
 import com.thoughtworks.rslist.dto.RsEventDto;
 import com.thoughtworks.rslist.dto.UserDto;
 import com.thoughtworks.rslist.dto.VoteDto;
 import com.thoughtworks.rslist.repository.RsEventRepository;
+import com.thoughtworks.rslist.repository.TradeRepository;
 import com.thoughtworks.rslist.repository.UserRepository;
 import com.thoughtworks.rslist.repository.VoteRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -12,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -19,7 +23,8 @@ import java.time.LocalDateTime;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -31,6 +36,9 @@ class VoteControllerTest {
     RsEventRepository rsEventRepository;
     @Autowired
     VoteRepository voteRepository;
+    @Autowired
+    TradeRepository tradeRepository;
+
     UserDto userDto;
     RsEventDto rsEventDto;
 
@@ -53,6 +61,27 @@ class VoteControllerTest {
         rsEventRepository.deleteAll();
         userRepository.deleteAll();
       }
+
+    @Test
+    public void shouldRsEventTradeHotSearch() throws Exception {
+        int rsEventId = rsEventDto.getId();
+        Trade trade = Trade.builder().amount(99).rank(1).rsEventId(rsEventId).build();
+        ObjectMapper objectMapper = new ObjectMapper();
+        String requsetJsonTrade = objectMapper.writeValueAsString(trade);
+
+        mockMvc.perform(post("/rs/buy/{id}",rsEventId).content(requsetJsonTrade).contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        trade = Trade.builder().amount(999).rank(1).rsEventId(rsEventId).build();
+        requsetJsonTrade = objectMapper.writeValueAsString(trade);
+        mockMvc.perform(post("/rs/buy/{id}",2).content(requsetJsonTrade).contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        trade = Trade.builder().amount(99).rank(1).rsEventId(rsEventId).build();
+        requsetJsonTrade = objectMapper.writeValueAsString(trade);
+        mockMvc.perform(post("/rs/buy/{id}",3).content(requsetJsonTrade).contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+    }
 
     @Test
     public void shouldGetVoteRecord() throws Exception {
