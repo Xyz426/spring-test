@@ -3,11 +3,14 @@ package com.thoughtworks.rslist.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.thoughtworks.rslist.domain.Trade;
 import com.thoughtworks.rslist.dto.RsEventDto;
+import com.thoughtworks.rslist.dto.TradeDto;
 import com.thoughtworks.rslist.dto.UserDto;
 import com.thoughtworks.rslist.dto.VoteDto;
 import com.thoughtworks.rslist.repository.RsEventRepository;
+import com.thoughtworks.rslist.repository.TradeRepository;
 import com.thoughtworks.rslist.repository.UserRepository;
 import com.thoughtworks.rslist.repository.VoteRepository;
+import com.thoughtworks.rslist.service.RsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,12 +22,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -39,21 +41,74 @@ class RsControllerTest {
   @Autowired VoteRepository voteRepository;
   private UserDto userDto;
 
+  @Autowired
+  RsService rsService;
+
+  @Autowired
+  TradeRepository tradeRepository;
+
   private RsEventDto rsEventDto;
   @BeforeEach
   void setUp() {
     voteRepository.deleteAll();
     rsEventRepository.deleteAll();
     userRepository.deleteAll();
-    userDto =
-        UserDto.builder()
-            .voteNum(10)
-            .phone("188888888888")
-            .gender("female")
-            .email("a@b.com")
-            .age(19)
-            .userName("idolice")
-            .build();
+  }
+
+  @Test
+  void shouldSuccessBuyRsEventWhenNo() throws Exception {
+
+    RsEventDto rsEventDto =
+            RsEventDto.builder().keyword("无分类").eventName("第一条事件").rank(1).id(1).build();
+    Trade trade = Trade.builder().amount(99).rank(1).rsEventId(1).build();
+    TradeDto tradeDto = TradeDto.builder().rsEventId(1).amount(400).rank(1).build();
+    when(rsEventRepository.findById(1).get()).thenReturn(rsEventDto);
+    when(tradeRepository.findByRank(trade.getRank())).thenReturn(null);
+    rsService.buy(trade,1);
+    verify(tradeRepository).save(tradeDto);
+    verify(rsEventRepository).save(rsEventDto);
+  }
+  @Test
+  void shouldSuccessBuyRsEventWhenAmountBetter() throws Exception {
+
+    RsEventDto rsEventDtoOne =
+            RsEventDto.builder().keyword("无分类").eventName("第一条事件").rank(1).id(1).build();
+    RsEventDto rsEventDtoTwo =
+            RsEventDto.builder().keyword("无分类").eventName("第一条事件").rank(1).id(2).build();
+    Trade trade = Trade.builder().amount(99).rank(1).rsEventId(1).build();
+    TradeDto tradeDto = TradeDto.builder().rsEventId(1).amount(200).rank(1).build();
+    TradeDto tradeDtoNew = TradeDto.builder().rsEventId(2).amount(400).rank(1).build();
+    when(rsEventRepository.findById(2).get()).thenReturn(rsEventDtoTwo);
+    rsService.buy(trade,2);
+    verify(tradeRepository).save(tradeDtoNew);
+    verify(rsEventRepository).save(rsEventDtoTwo);
+    verify(rsEventRepository).deleteById(rsEventDtoOne.getId());
+  }
+  @Test
+  void shouldReturnErrorWhenAmountFewer() throws Exception {
+    RsEventDto rsEventDto =
+            RsEventDto.builder().keyword("无分类").eventName("第一条事件").rank(1).id(1).user(userDto).build();
+    RsEventDto rsEventDtoNew =
+            RsEventDto.builder().keyword("无分类").eventName("第一条事件").rank(1).id(2).user(userDto).build();
+    Trade trade = Trade.builder().amount(99).rank(1).rsEventId(1).build();
+    TradeDto tradeDto = TradeDto.builder().rsEventId(1).amount(600).rank(1).build();
+    TradeDto tradeDtoNew = TradeDto.builder().rsEventId(2).amount(400).rank(1).build();
+    when(rsEventRepository.findById(2).get()).thenReturn((rsEventDtoNew));
+    assertThrows(
+            Exception.class,
+            () -> {
+              rsService.buy(trade,2);
+            });
+  }
+  @Test
+  void shouldReturn400WhenRsEventIdError() throws Exception {
+    Trade trade = Trade.builder().amount(99).rank(1).rsEventId(1).build();
+    when(rsEventRepository.findById(2).get()).thenReturn(null);
+    assertThrows(
+            Exception.class,
+            () -> {
+              rsService.buy(trade,2);
+            });
   }
 
   @Test
@@ -88,6 +143,7 @@ class RsControllerTest {
     mockMvc.perform(get("/rs/2")).andExpect(jsonPath("$.eventName", is("第二条事件")));
     mockMvc.perform(get("/rs/2")).andExpect(jsonPath("$.keyword", is("无分类")));
   }
+
 
   @Test
   public void shouldGetErrorWhenIndexInvalid() throws Exception {
