@@ -1,5 +1,7 @@
 package com.thoughtworks.rslist.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.thoughtworks.rslist.domain.Trade;
 import com.thoughtworks.rslist.dto.RsEventDto;
 import com.thoughtworks.rslist.dto.UserDto;
 import com.thoughtworks.rslist.dto.VoteDto;
@@ -37,6 +39,7 @@ class RsControllerTest {
   @Autowired VoteRepository voteRepository;
   private UserDto userDto;
 
+  private RsEventDto rsEventDto;
   @BeforeEach
   void setUp() {
     voteRepository.deleteAll();
@@ -184,5 +187,26 @@ class RsControllerTest {
     List<VoteDto> voteDtos =  voteRepository.findAll();
     assertEquals(voteDtos.size(), 1);
     assertEquals(voteDtos.get(0).getNum(), 1);
+  }
+
+  @Test
+  public void shouldRsEventTradeHotSearch() throws Exception {
+    int rsEventId = rsEventDto.getId();
+    Trade trade = Trade.builder().amount(99).rank(1).rsEventId(rsEventId).build();
+    ObjectMapper objectMapper = new ObjectMapper();
+    String requsetJsonTrade = objectMapper.writeValueAsString(trade);
+
+    mockMvc.perform(post("/rs/buy/{id}",rsEventId).content(requsetJsonTrade).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk());
+
+    trade = Trade.builder().amount(999).rank(1).rsEventId(rsEventId).build();
+    requsetJsonTrade = objectMapper.writeValueAsString(trade);
+    mockMvc.perform(post("/rs/buy/{id}",2).content(requsetJsonTrade).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk());
+
+    trade = Trade.builder().amount(99).rank(1).rsEventId(rsEventId).build();
+    requsetJsonTrade = objectMapper.writeValueAsString(trade);
+    mockMvc.perform(post("/rs/buy/{id}",3).content(requsetJsonTrade).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest());
   }
 }
